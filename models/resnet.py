@@ -35,29 +35,19 @@ class BasicBlock(nn.Module):
 
         self.stride = stride
         self.shortcut = nn.Sequential()
-        self.use_shortcut = False
         self.planes=planes
 
-        # Code modified here: Converting to functional code
         if stride != 1 or in_planes != self.expansion*planes:
-            #self.shortcut = nn.Sequential(
-            #    nn.Conv2d(in_planes, self.expansion*planes,
-            #              kernel_size=1, stride=stride, bias=False),
-            #    nn.BatchNorm2d(self.expansion*planes)
-            #)
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_planes, self.expansion*planes,
+                          kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(self.expansion*planes)
+            )
 
-            self.use_shortcut = True
 
     def forward(self, x):
         out = F.relu(self.bn1(F.conv2d(x, self.W1, stride=self.stride, padding=1)))
         out = self.bn2(F.conv2d(out, self.W2, stride=1, padding=1))
-
-        if self.use_shortcut:
-            self.shortcut = nn.Sequential(
-                    F.conv2d(x, self.W_skip, stride=self.stride),
-                    nn.BatchNorm2d(self.expansion*self.planes)
-            )
-
         out += self.shortcut(x)
         out = F.relu(out)
         return out
