@@ -67,6 +67,15 @@ class Bottleneck(nn.Module):
                                planes, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(self.expansion*planes)
 
+        # Changes made: converting to functional code
+        self.W1 = nn.Parameter(torch.zeros(size=(planes, in_planes, 1, 1)))
+        self.W2 = nn.Parameter(torch.zeros(size=(planes, planes, 3, 3)))
+        self.W3 = nn.Parameter(torch.zeros(size=(self.expansion*planes, planes, 1, 1)))
+        nn.init.kaiming_normal_(self.W1)
+        nn.init.kaiming_normal_(self.W2)
+        nn.init.kaiming_normal_(self.W3)
+        self.stride = stride
+
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
@@ -76,9 +85,10 @@ class Bottleneck(nn.Module):
             )
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = F.relu(self.bn2(self.conv2(out)))
-        out = self.bn3(self.conv3(out))
+        # Changes made: converting to functional code
+        out = F.relu(self.bn1(F.conv2d(x, self.W1)))
+        out = F.relu(self.bn2(F.conv2d(out, self.W2, padding=1, stride=self.stride)))
+        out = self.bn3(F.conv2d(out, self.W3))
         out += self.shortcut(x)
         out = F.relu(out)
         return out
