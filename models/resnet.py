@@ -12,18 +12,16 @@ import torch.nn.functional as F
 import numpy as np
 
 def create_squared_sparsity_matrix(planes, m, p):
-    print("Creating squared matrix")
     M = torch.rand(planes*m, planes*m, 1,1) < p
-    a = torch.eye(planes*m)
+    a = torch.eye(planes*m).reshape(planes*m, planes*m,1,1)
     M = nn.Parameter((M+a)>0, requires_grad=False)
     del a
     return M
 
 def create_rect_sparsity_matrix(in_planes, planes, m, p):
-    print("Creating rectangular matrix")
     M = torch.rand(planes*m, in_planes*m, 1, 1) < p
-    a = np.zeros((planes*m, in_planes*m))
-    i,j = np.indices(a.shape)
+    a = np.zeros((planes*m, in_planes*m, 1, 1))
+    i,j,_,_ = np.indices(a.shape)
     
     for z in range(in_planes*m):
         a[i==j+z] = 1
@@ -39,20 +37,21 @@ class BasicBlock(nn.Module):
         super(BasicBlock, self).__init__()
         self.conv1 = nn.Conv2d(
             in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
+        self.bn1 = nn.BatchNorm2d(planes*m)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
                                stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
+        self.bn2 = nn.BatchNorm2d(planes*m)
 
         # Code modified here: Converting to functional code
-        self.W1 = nn.Parameter(torch.zeros(size=(planes, in_planes, 3, 3)))
-        self.W2 = nn.Parameter(torch.zeros(size=(planes, planes, 3, 3)))
-        nn.init.kaiming_normal_(self.W1)
-        nn.init.kaiming_normal_(self.W2)
-
+        
         # Code modified here: Adding masking
         self.m = m
         self.p = 1/(self.m**2)
+        self.W1 = nn.Parameter(torch.zeros(size=(planes*self.m, in_planes*self.m, 3, 3)))
+        self.W2 = nn.Parameter(torch.zeros(size=(planes*self.m, planes*self.m, 3, 3)))
+        nn.init.kaiming_normal_(self.W1)
+        nn.init.kaiming_normal_(self.W2)
+
 
         # Simple Sparsity
         self.M1 = nn.Parameter(torch.rand(planes*self.m, in_planes*self.m, 1, 1) < self.p, requires_grad=False)
@@ -77,7 +76,7 @@ class BasicBlock(nn.Module):
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_planes*self.m, self.expansion*planes*self.m,
                           kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
+                nn.BatchNorm2d(self.expansion*planes*self.m)
             )
 
 
@@ -133,21 +132,21 @@ class Bottleneck(nn.Module):
 class ResNet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=10, m=1):
         super(ResNet, self).__init__()
-        self.in_planes = 64
-
         #self.conv1 = nn.Conv2d(3, 64, kernel_size=3,
                                #stride=1, padding=1, bias=False)
 
         # Change made here: Converting conv1 to functional
-        self.W1 = nn.Parameter(torch.zeros(size=(64,3,3,3)))
+        self.in_planes = 64
+        self.W1 = nn.Parameter(torch.zeros(size=(64*m,3,3,3)))
         nn.init.kaiming_normal_(self.W1)
+    
 
-        self.bn1 = nn.BatchNorm2d(64)
+        self.bn1 = nn.BatchNorm2d(64*m)
         self.layer1 = self._make_layer(block, m, 64, num_blocks[0], stride=1)
         self.layer2 = self._make_layer(block, m, 128, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, m, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, m, 512, num_blocks[3], stride=2)
-        self.linear = nn.Linear(512*block.expansion, num_classes)
+        self.linear = nn.Linear(512*block.expansion*m, num_classes)
 
     def _make_layer(self, block, m, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -159,6 +158,7 @@ class ResNet(nn.Module):
 
     def forward(self, x):
         out = F.relu(self.bn1(F.conv2d(x, self.W1, stride=1, padding=1)))
+        print(out.shape)
         out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)
@@ -170,7 +170,7 @@ class ResNet(nn.Module):
 
 
 def ResNet18():
-    return ResNet(BasicBlock, [2, 2, 2, 2], m=1)
+    return ResNet(BasicBlock, [2, 2, 2, 2], m=2)
 
 
 def ResNet34():
