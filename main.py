@@ -43,6 +43,8 @@ transform_test = transforms.Compose([
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
+print("Dataset Used: CIFAR100")
+
 trainset = torchvision.datasets.CIFAR10(
     root='./data', train=True, download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(
@@ -59,7 +61,7 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 # Model
 print('==> Building model..')
 # net = VGG('VGG19')
-net = ResNet50()
+net = ResNet18()
 
 # net = PreActResNet18()
 # net = GoogLeNet()
@@ -155,7 +157,7 @@ def test(epoch):
         best_acc = acc
 
 
-for epoch in range(start_epoch, start_epoch+250):
+for epoch in range(start_epoch, start_epoch+200):
     train(epoch)
     test(epoch)
     scheduler.step()

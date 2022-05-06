@@ -33,7 +33,7 @@ def create_rect_sparsity_matrix(in_planes, planes, m, p):
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, in_planes, planes, stride=1, m=1):
+    def __init__(self, in_planes, planes, stride=1, m=1, k=3):
         super(BasicBlock, self).__init__()
         self.conv1 = nn.Conv2d(
             in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
@@ -68,6 +68,10 @@ class BasicBlock(nn.Module):
         self.M2 = create_squared_sparsity_matrix(planes, self.m, self.p)
 
 
+        # Reflexivity (Comment out to disable)
+        self.M1[:,0:k,:,:] = 1
+        self.M2[:,0:k,:,:] = 1
+
         self.stride = stride
         self.shortcut = nn.Sequential()
         self.planes=planes
@@ -91,7 +95,7 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, in_planes, planes, stride=1, m=1):
+    def __init__(self, in_planes, planes, stride=1, m=1, k=2):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes*m)
@@ -153,7 +157,7 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10, m=1):
+    def __init__(self, block, num_blocks, num_classes=100, m=1):
         super(ResNet, self).__init__()
         #self.conv1 = nn.Conv2d(3, 64, kernel_size=3,
                                #stride=1, padding=1, bias=False)
@@ -192,7 +196,7 @@ class ResNet(nn.Module):
 
 
 def ResNet18():
-    return ResNet(BasicBlock, [2, 2, 2, 2], m=1)
+    return ResNet(BasicBlock, [2, 2, 2, 2], m=4)
 
 
 def ResNet34():
